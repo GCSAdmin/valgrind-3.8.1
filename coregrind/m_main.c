@@ -1511,6 +1511,9 @@ void show_BB_profile ( BBProfEntry tops[], UInt n_tops, ULong score_total )
 static IICreateImageInfo   the_iicii;
 static IIFinaliseImageInfo the_iifii;
 
+ULong global_start_record_size = (ULong)-1;
+int global_start_detect_flag = 0;
+int global_start_print_flag  = 0;
 
 /* A simple pair structure, used for conveying debuginfo handles to
    calls to VG_TRACK(new_mem_startup, ...). */

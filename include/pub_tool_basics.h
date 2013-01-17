@@ -316,6 +316,10 @@ static inline Bool sr_EQ ( SysRes sr1, SysRes sr2 ) {
 #endif
 
 
+extern ULong global_start_record_size ;
+extern int global_start_detect_flag;
+extern int global_start_print_flag ;
+
 #endif /* __PUB_TOOL_BASICS_H */
 
 /*--------------------------------------------------------------------*/

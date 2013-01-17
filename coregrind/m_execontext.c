@@ -413,6 +413,7 @@ static ExeContext* record_ExeContext_wrk2 ( Addr* ips, UInt n_ips )
    new_ec->chain = ec_htab[hash];
    ec_htab[hash] = new_ec;
 
+
    /* Resize the hash table, maybe? */
    if ( ((ULong)ec_totstored) > ((ULong)ec_htab_size) ) {
       vg_assert(ec_htab_size_idx >= 0 && ec_htab_size_idx < N_EC_PRIMES);

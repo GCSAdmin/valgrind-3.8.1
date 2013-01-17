@@ -43,7 +43,25 @@
 #include "pub_tool_tooliface.h"     // Needed for mc_include.h
 #include "pub_tool_stacktrace.h"    // For VG_(get_and_pp_StackTrace)
 
+#include "../coregrind/pub_core_tooliface.h" 
 #include "mc_include.h"
+//#include <time.h>
+
+char*
+mc_get_local_time_str(
+    char*   buf,
+    int     len
+)
+{
+    //time_t tp;
+
+    //tl_assert(len > 50);
+
+    //time(&tp);
+   // sprintf(buf, "%s", asctime(gmtime(&tp)));
+    //return buf;
+    return "";
+}
 
 /*------------------------------------------------------------*/
 /*--- Defns                                                ---*/
@@ -195,6 +213,7 @@ MC_Chunk* create_MC_Chunk ( ExeContext* ec, Addr p, SizeT szB,
    mc->szB       = szB;
    mc->allockind = kind;
    mc->where     = ec;
+   mc->print_flag = global_start_detect_flag;
 
    /* Each time a new MC_Chunk is created, release oldest blocks
       if the free list volume is exceeded. */
@@ -254,6 +273,7 @@ void* MC_(new_block) ( ThreadId tid,
                        Bool is_zeroed, MC_AllocKind kind, VgHashTable table)
 {
    ExeContext* ec;
+   char         buf[100];
 
    // Allocate and zero if necessary
    if (p) {
@@ -280,6 +300,13 @@ void* MC_(new_block) ( ThreadId tid,
    ec = VG_(record_ExeContext)(tid, 0/*first_ip_delta*/);
    tl_assert(ec);
 
+   //addtest
+   if(szB > global_start_record_size ){
+       VG_(message)(Vg_UserMsg, "[%s] malloc at 0x%llX, bytes: %'lu ,the %'lu times \n", mc_get_local_time_str(buf, 100), p, szB ,cmalloc_n_mallocs );
+       VG_(pp_ExeContext)(ec);
+       VG_(message)(Vg_UserMsg, "======\n\n" );
+   }
+
    VG_(HT_add_node)( table, create_MC_Chunk(ec, p, szB, kind) );
 
    if (is_zeroed)
@@ -288,6 +315,14 @@ void* MC_(new_block) ( ThreadId tid,
       UInt ecu = VG_(get_ECU_from_ExeContext)(ec);
       tl_assert(VG_(is_plausible_ECU)(ecu));
       MC_(make_mem_undefined_w_otag)( p, szB, ecu | MC_OKIND_HEAP );
+   }
+
+   if( global_start_print_flag ){
+
+       VG_(message)(Vg_UserMsg, "begin print memory %d\n",global_start_detect_flag);
+       VG_TDICT_CALL(tool_fini, 0/*exitcode*/);
+       global_start_print_flag = 0;
+       VG_(message)(Vg_UserMsg, "end print memory %d\n",global_start_detect_flag);
    }
 
    return (void*)p;
@@ -370,16 +405,25 @@ void die_and_free_mem ( ThreadId tid, MC_Chunk* mc, SizeT rzB )
 void MC_(handle_free) ( ThreadId tid, Addr p, UInt rzB, MC_AllocKind kind )
 {
    MC_Chunk* mc;
+   char      buf[100];
 
    cmalloc_n_frees++;
 
    mc = VG_(HT_remove) ( MC_(malloc_list), (UWord)p );
+
    if (mc == NULL) {
       MC_(record_free_error) ( tid, p );
    } else {
-      /* check if it is a matching free() / delete / delete [] */
-      if (kind != mc->allockind) {
-         tl_assert(p == mc->data);
+
+       //addtest
+       if(mc->szB > global_start_record_size ){
+           VG_(message)(Vg_UserMsg, "[%s] free at 0x%llX, bytes: %'lu ,the %'lu times \n", mc_get_local_time_str(buf, 100), p, mc->szB ,cmalloc_n_frees );      
+           VG_(message)(Vg_UserMsg, "======\n\n" );
+       }
+
+       /* check if it is a matching free() / delete / delete [] */
+       if (kind != mc->allockind) {
+           tl_assert(p == mc->data);
          MC_(record_freemismatch_error) ( tid, mc );
       }
       die_and_free_mem ( tid, mc, rzB );
@@ -409,6 +453,8 @@ void* MC_(realloc) ( ThreadId tid, void* p_old, SizeT new_szB )
    MC_Chunk* mc;
    void*     p_new;
    SizeT     old_szB;
+   ExeContext* ec = NULL;
+   char      buf[100];
 
    if (complain_about_silly_args(new_szB, "realloc")) 
       return NULL;
@@ -435,6 +481,12 @@ void* MC_(realloc) ( ThreadId tid, void* p_old, SizeT new_szB )
 
    old_szB = mc->szB;
 
+   //addtest
+   if(old_szB > global_start_record_size ){
+       VG_(message)(Vg_UserMsg, "[%s] free at 0x%llX, bytes: %'lu ,the %'lu times \n",mc_get_local_time_str(buf, 100), (Addr)p_old ,old_szB ,cmalloc_n_frees );      
+       VG_(message)(Vg_UserMsg, "======\n\n" );
+   }
+
    /* In all cases, even when the new size is smaller or unchanged, we
       reallocate and copy the contents, and make the old block
       inaccessible.  This is so as to guarantee to catch all cases of
@@ -449,8 +501,7 @@ void* MC_(realloc) ( ThreadId tid, void* p_old, SizeT new_szB )
       /* Get new memory */
       a_new = (Addr)VG_(cli_malloc)(VG_(clo_alignment), new_szB);
 
-      if (a_new) {
-         ExeContext* ec;
+      if (a_new) {         
 
          ec = VG_(record_ExeContext)(tid, 0/*first_ip_delta*/);
          tl_assert(ec);
@@ -490,8 +541,7 @@ void* MC_(realloc) ( ThreadId tid, void* p_old, SizeT new_szB )
       a_new = (Addr)VG_(cli_malloc)(VG_(clo_alignment), new_szB);
 
       if (a_new) {
-         UInt        ecu;
-         ExeContext* ec;
+         UInt        ecu;         
 
          ec = VG_(record_ExeContext)(tid, 0/*first_ip_delta*/);
          tl_assert(ec);
@@ -535,6 +585,14 @@ void* MC_(realloc) ( ThreadId tid, void* p_old, SizeT new_szB )
 
       p_new = (void*)a_new;
    }  
+
+
+   //addtest
+   if(ec && new_szB > global_start_record_size ){
+       VG_(message)(Vg_UserMsg, "[%s] malloc at 0x%llX, bytes: %'lu ,the %'lu times \n",mc_get_local_time_str(buf, 100), (Addr)p_new , new_szB ,cmalloc_n_mallocs );
+       VG_(pp_ExeContext)(ec);
+       VG_(message)(Vg_UserMsg, "======\n\n" );
+   }
 
    // Now insert the new mc (with a possibly new 'data' field) into
    // malloc_list.  If this realloc() did not increase the memory size, we

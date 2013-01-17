@@ -1018,11 +1018,13 @@ static void print_results(ThreadId tid, LeakCheckParams* lcp)
          // We found an existing loss record matching this chunk.  Update the
          // loss record's details in-situ.  This is safe because we don't
          // change the elements used as the OSet key.
-         old_lr->szB          += ch->szB;
-         if (ex->state == Unreached)
-            old_lr->indirect_szB += ex->IorC.indirect_szB;
-         old_lr->num_blocks++;
-      } else {
+          if(global_start_print_flag == 0 || ch->print_flag >= global_start_detect_flag){
+              old_lr->szB          += ch->szB;
+              if (ex->state == Unreached)
+                  old_lr->indirect_szB += ex->IorC.indirect_szB;
+              old_lr->num_blocks++;
+          }
+      } else if(global_start_print_flag == 0 || ch->print_flag >= global_start_detect_flag){
          // No existing loss record matches this chunk.  Create a new loss
          // record, initialise it from the chunk, and insert it into lr_table.
          lr = VG_(OSetGen_AllocNode)(lr_table, sizeof(LossRecord));

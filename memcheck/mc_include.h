@@ -68,6 +68,7 @@ typedef
       SizeT        szB : (sizeof(SizeT)*8)-2; // Size requested; 30 or 62 bits.
       MC_AllocKind allockind : 2;   // Which operation did the allocation.
       ExeContext*  where;           // Where it was allocated.
+      int print_flag;
    }
    MC_Chunk;
 
@@ -569,6 +570,11 @@ IRSB* MC_(instrument) ( VgCallbackClosure* closure,
                         IRType gWordTy, IRType hWordTy );
 
 IRSB* MC_(final_tidy) ( IRSB* );
+
+
+extern ULong global_start_record_size ;
+extern int global_start_detect_flag;
+extern int global_start_print_flag ;
 
 #endif /* ndef __MC_INCLUDE_H */
 
